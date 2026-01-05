@@ -1,0 +1,7 @@
+{
+  "name": "Oráculo",
+  "description": "A Second Brain application merging Task Management, Knowledge Base, and an Active AI Agent.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
