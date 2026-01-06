@@ -39,4 +39,5 @@ export interface ChatMessage {
 export interface UserSettings {
   user_id: string;
   custom_prompt: string;
+  gemini_api_key?: string;
 }

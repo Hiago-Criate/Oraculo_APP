@@ -2,8 +2,6 @@
 import { GoogleGenAI, Type, FunctionDeclaration, Part } from "@google/genai";
 import { createTask, createNote, fetchTasks, fetchNotes, fetchProjects } from "./supabase";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const createTaskTool: FunctionDeclaration = {
   name: "createTask",
   description: "Create a new task in the user's todo list.",
@@ -71,9 +69,17 @@ const tools = [createTaskTool, createNoteTool, queryTasksTool, queryNotesTool, q
 export const sendMessageToGemini = async (
   history: { role: 'user' | 'model'; content: string }[],
   newMessage: string,
-  customInstruction: string = ""
+  customInstruction: string = "",
+  providedApiKey?: string
 ) => {
-  // Use 'gemini-3-flash-preview' for basic text and tool tasks as per guidelines
+  // CRITICAL: Prioritize the key provided by the user (stored in DB), fallback to process.env.API_KEY
+  const apiKey = providedApiKey || process.env.API_KEY;
+  
+  if (!apiKey) {
+    return "Erro: Nenhuma API Key do Gemini configurada. Por favor, acesse as configurações do Chat AI e insira sua chave.";
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-3-flash-preview";
 
   try {
@@ -140,15 +146,16 @@ export const sendMessageToGemini = async (
       }
 
       const finalResult = await chat.sendMessage({ message: responseParts });
-      // Use .text property to extract output
-      return finalResult.text || "Feito.";
+      return finalResult.text || "Ação concluída.";
     }
 
-    // Use .text property to extract output
     return result.text || "";
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Gemini Error:", error);
-    return "Desculpe, erro ao processar.";
+    if (error.message?.includes("API key not valid")) {
+      return "Erro: Sua API Key do Gemini parece inválida. Verifique se a copiou corretamente nas configurações.";
+    }
+    return "Desculpe, ocorreu um erro ao processar sua solicitação.";
   }
 };

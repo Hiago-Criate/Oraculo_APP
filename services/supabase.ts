@@ -1,5 +1,6 @@
+
 import { createClient } from '@supabase/supabase-js';
-import { Task, Note, Project } from '../types';
+import { Task, Note, Project, UserSettings } from '../types';
 
 const SUPABASE_URL = "https://nonzmnnrfdauyfneajls.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5vbnptbm5yZmRhdXlmbmVhamxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NDg5ODQsImV4cCI6MjA3MTEyNDk4NH0.Ljp27kvhELf-5TkFFCJVD0n0URlWTUCDfY81VX09qfI";
@@ -35,32 +36,42 @@ export const getUserId = async (): Promise<string> => {
 
 // --- USER SETTINGS ---
 
-export const fetchUserSettings = async () => {
+export const fetchUserSettings = async (): Promise<UserSettings> => {
   const userId = await getUserId();
   const { data, error } = await supabase
     .from('user_settings')
-    .select('custom_prompt')
+    .select('custom_prompt, gemini_api_key')
     .eq('user_id', userId)
     .maybeSingle();
 
   if (error) {
     console.error("Error fetching settings:", JSON.stringify(error, null, 2));
-    return { custom_prompt: '' };
+    return { user_id: userId, custom_prompt: '', gemini_api_key: '' };
   }
-  return data || { custom_prompt: '' };
+  return data || { user_id: userId, custom_prompt: '', gemini_api_key: '' };
 };
 
-export const saveCustomPrompt = async (prompt: string) => {
+export const saveUserSettings = async (settings: { prompt: string, apiKey?: string }) => {
   const userId = await getUserId();
   const { error } = await supabase
     .from('user_settings')
-    .upsert({ user_id: userId, custom_prompt: prompt, updated_at: new Date() })
+    .upsert({ 
+      user_id: userId, 
+      custom_prompt: settings.prompt, 
+      gemini_api_key: settings.apiKey,
+      updated_at: new Date() 
+    })
     .select();
 
   if (error) {
-    console.error("Error saving prompt:", JSON.stringify(error, null, 2));
+    console.error("Error saving settings:", JSON.stringify(error, null, 2));
     throw error;
   }
+};
+
+// Mantendo compatibilidade com código antigo caso necessário
+export const saveCustomPrompt = async (prompt: string) => {
+  await saveUserSettings({ prompt });
 };
 
 // --- PROJECTS ---
@@ -121,7 +132,6 @@ export const fetchTasks = async () => {
 export const createTask = async (task: Partial<Task>) => {
   const userId = await getUserId();
   
-  // SANITIZE DATE: Strict YYYY-MM-DD
   let cleanDueDate = task.due_date;
   if (cleanDueDate && cleanDueDate.includes('T')) {
     cleanDueDate = cleanDueDate.split('T')[0];
